@@ -140,3 +140,7 @@ Makefile
 /windows/*.msi
 /windows/*.wixobj
 /windows/*.wixpdb
+
+.idea
+cmake-build-release
+cmake-build-debug

@@ -477,7 +477,7 @@ void keylist_update(void)
     }
 }
 
-static void win_add_keyfile(Filename *filename, bool encrypted)
+static void win_add_keyfile(Filename *filename, bool encrypted,const char* pass)
 {
     char *err;
     int ret;
@@ -487,7 +487,7 @@ static void win_add_keyfile(Filename *filename, bool encrypted)
      * _new_ passphrase; pageant_add_keyfile will take care of trying
      * all the passphrases we've already stored.)
      */
-    ret = pageant_add_keyfile(filename, NULL, &err, encrypted);
+    ret = pageant_add_keyfile(filename, pass, &err, encrypted);
     if (ret == PAGEANT_ACTION_OK) {
         goto done;
     } else if (ret == PAGEANT_ACTION_FAILURE) {
@@ -552,7 +552,7 @@ static void prompt_add_keyfile(bool encrypted)
 
     if (rmf) {
         for (size_t i = 0; i < rmf->nfilenames; i++)
-            win_add_keyfile(rmf->filenames[i], encrypted);
+            win_add_keyfile(rmf->filenames[i], encrypted,"");
         request_multi_file_free(rmf);
 
         keylist_update();
@@ -1514,6 +1514,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     typedef struct CommandLineKey {
         Filename *fn;
         bool add_encrypted;
+        const char* password;
+        bool has_password;
     } CommandLineKey;
 
     CommandLineKey *clkeys = NULL;
@@ -1587,7 +1589,11 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
             CommandLineKey *clkey = &clkeys[nclkeys++];
             clkey->fn = cmdline_arg_to_filename(valarg);
             clkey->add_encrypted = add_keys_encrypted;
-        } else if (match_opt("-pgpfp")) {
+        }else if (match_optval("-p")) {
+            clkeys[nclkeys-1].password = cmdline_arg_to_str(valarg);
+            clkeys[nclkeys-1].has_password = true;
+
+        } else if (match_optval("-pgpfp")) {
             pgp_fingerprints_msgbox(NULL);
             return 0;
         } else if (match_opt("-restrict-acl", "-restrict_acl",
@@ -1806,7 +1812,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
      */
     for (size_t i = 0; i < nclkeys; i++) {
         CommandLineKey *clkey = &clkeys[i];
-        win_add_keyfile(clkey->fn, clkey->add_encrypted);
+        win_add_keyfile(clkey->fn, clkey->add_encrypted,clkey->has_password?clkey->password:"");
         filename_free(clkey->fn);
     }
     sfree(clkeys);
